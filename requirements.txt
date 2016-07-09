@@ -1,0 +1,15 @@
+APScheduler==3.2.0
+Flask==0.11.1
+Jinja2==2.8
+MarkupSafe==0.23
+Werkzeug==0.11.10
+click==6.6
+funcsigs==1.0.2
+futures==3.0.5
+itsdangerous==0.24
+python-http-client==2.1.0
+pytz==2016.4
+sendgrid==3.0.3
+six==1.10.0
+tzlocal==1.2.2
+wsgiref==0.1.2
