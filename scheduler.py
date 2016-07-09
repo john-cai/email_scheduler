@@ -8,7 +8,6 @@ from flask import Flask, request, session, g, redirect, url_for, abort, \
 from apscheduler.schedulers.background import BackgroundScheduler
 import logging
 import requests
-import sendgrid
 
 logging.basicConfig()
 #import click
