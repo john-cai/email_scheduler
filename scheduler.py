@@ -1,6 +1,12 @@
 import os, click, json, sqlite3
+import datetime
+from apscheduler.executors.pool import ThreadPoolExecutor
+from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from flask import Flask, request, session, g, redirect, url_for, abort, \
      render_template, flash, make_response
+from apscheduler.schedulers.background import BackgroundScheduler
+import logging
+logging.basicConfig()
 #import click
 app = Flask(__name__)
 # Load default config and override config from an environment variable
@@ -10,6 +16,12 @@ app.config.update(dict(
     USERNAME='admin',
     PASSWORD='default'
 ))
+
+# scheduler
+sched = BackgroundScheduler(timezone='America/Los_Angeles')
+sched.add_jobstore('sqlalchemy', url='sqlite:///db/notifications.db')
+sched.add_executor('processpool')
+sched.start()
 
 def connect_db():
     """Connects to the specific database."""
@@ -53,12 +65,11 @@ def addNotification():
     payload = json.loads(request.data)
     if not validatePayload(payload):
         return make_response("",400)
-    db = get_db()
-
-    db.execute('insert into notifications (reservation_id, end_date, first_name, last_name, email_address) values(?,?,?,?,?)',
-               [payload['reservation_id'], payload['end_date'], payload['first_name'], payload['last_name'], payload['email_address']])
-    db.commit()
+    sched.add_job(send, 'date', run_date=datetime.datetime.strptime(payload['end_date'], '%Y-%m-%d'), args=[payload], id=str(payload['reservation_id']))
     return make_response("",200)
+
+def send(payload):
+    print("i'm sending " + str(payload) + "\n")
 
 def validatePayload(payload):
     if all (k in payload for k in ('reservation_id', 'end_date', 'first_name', 'last_name', 'email_address')):
@@ -70,16 +81,15 @@ def listNotifications():
     db = get_db()
     if request.method == 'GET':
         rows = []
-        rows = db.execute('select reservation_id, first_name, last_name, email_address, end_date from notifications').fetchall()
-        print str(rows)
+        rows = db.execute('select id as reservation_id, next_run_time as reminder_time from apscheduler_jobs').fetchall()
         results = {"notifications": rows}
         return make_response(json.dumps(results), 200)
     if request.method == 'DELETE':
         reservation_id = request.form.get('reservation_id')
         if reservation_id is None:
-            return make_response("missing valid reservation_id", 400)
-        db.execute("delete from notifications where reservation_id = ?",[reservation_id])
-        db.commit()
+            sched.remove_all_jobs()
+            return make_response("",200)
+        sched.remove_job(id=reservation_id)
         return make_response("",200)
     return make_response("",405)
 
